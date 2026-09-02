@@ -1,404 +1,295 @@
+const SUPABASE_URL = 'https://uvolbvrzakcrhizhspgv.supabase.co';
+const SUPABASE_ANON_KEY = 
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2xidnJ6YWtjcmhpemhzcGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMTc3OD0sImV4cCI6MjAyMzg5MzczMH0.TaHfzj6zUvjvQpuDzeUULbcxbM1tIAr_MqKM9cqKOvE';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const { useState, useEffect } = React;
 
 function App() {
-  // 1. Nutzersystem & Profilauswahl
-  const [userList, setUserList] = useState(() => {
-    const saved = localStorage.getItem('packapp_user_list');
-    return saved ? JSON.parse(saved) : ['Christian', 'Miriam'];
-  });
-  
-  const [currentUser, setCurrentUser] = useState(() => {
-    return localStorage.getItem('packapp_current_user') || 'Christian';
-  });
-
+  // Nutzerverwaltung
+  const [userList, setUserList] = useState(['Christian', 'Miriam']);
+  const [currentUser, setCurrentUser] = useState('Christian');
   const [newUserInput, setNewUserInput] = useState('');
 
-  // 2. Datenstruktur pro Nutzer (Listen, Personen, Kategorien)
-  const [userData, setUserData] = useState(() => {
-    const saved = localStorage.getItem('packapp_all_data');
-    return saved ? JSON.parse(saved) : {};
-  });
+  // Packliste & Kategorien aus der Cloud
+  const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState(['Allgemein', 'Kleidung', 'Elektronik', 'Dokumente', 'Spielzeug']);
+  const [loading, setLoading] = useState(true);
 
-  // Aktuelle Daten des eingeloggten Nutzers herausgreifen (oder Standardwerte)
-  const currentUserData = userData[currentUser] || {
-    items: [
-      { id: 1, text: 'Reisepass', category: 'Dokumente', person: 'Alle', checked: false },
-      { id: 2, text: 'Lieblingskuscheltier', category: 'Spielzeug', person: 'Kind 1', checked: false }
-    ],
-    categories: ['Allgemein', 'Kleidung', 'Elektronik', 'Dokumente', 'Spielzeug'],
-    people: ['Alle', 'Vater', 'Mutter', 'Kind 1', 'Kind 2']
-  };
-
-  const items = currentUserData.items;
-  const categories = currentUserData.categories;
-  const people = currentUserData.people;
-
-  // Formular-States
+  // Formular-Zustände für neuen Gegenstand
   const [newItemText, setNewItemText] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(categories[0] || 'Allgemein');
-  const [selectedPerson, setSelectedPerson] = useState(people[0] || 'Alle');
-  
-  const [newCatInput, setNewCatInput] = useState('');
-  const [newPersonInput, setNewPersonInput] = useState('');
-  const [showAddCat, setShowAddCat] = useState(false);
-  const [showAddPerson, setShowAddPerson] = useState(false);
+  const [newItemCategory, setNewItemCategory] = useState('Allgemein');
+  const [newItemPerson, setNewItemPerson] = useState('Alle');
 
-  // Filter-States
-  const [activeCatFilter, setActiveCatFilter] = useState('Alle');
-  const [activePersonFilter, setActivePersonFilter] = useState('Alle');
+  // Filter-Zustände
+  const [filterCategory, setFilterCategory] = useState('Alle');
+  const [filterPerson, setFilterPerson] = useState('Alle');
 
-  // Persistence im LocalStorage
+  // Neue Kategorie
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+
+  // 1. Daten aus Supabase laden, wenn sich der Nutzer ändert
   useEffect(() => {
-    localStorage.setItem('packapp_user_list', JSON.stringify(userList));
-  }, [userList]);
-
-  useEffect(() => {
-    localStorage.setItem('packapp_current_user', currentUser);
+    fetchItems();
   }, [currentUser]);
 
-  useEffect(() => {
-    localStorage.setItem('packapp_all_data', JSON.stringify(userData));
-  }, [userData]);
+  const fetchItems = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('pack_items')
+      .select('*')
+      .eq('user_name', currentUser);
 
-  // Hilfsfunktion: Daten des aktuellen Nutzers im Haupt-State aktualisieren
-  const updateCurrentUserData = (updatedFields) => {
-    setUserData(prev => ({
-      ...prev,
-      [currentUser]: {
-        ...currentUserData,
-        ...updatedFields
-      }
-    }));
-  };
-
-  // Nutzer anlegen / wechseln
-  const handleAddUser = (e) => {
-    e.preventDefault();
-    const name = newUserInput.trim();
-    if (name && !userList.includes(name)) {
-      setUserList([...userList, name]);
-      setCurrentUser(name);
-      setNewUserInput('');
+    if (error) {
+      console.error('Fehler beim Laden:', error.message);
+    } else {
+      setItems(data || []);
     }
+    setLoading(false);
   };
 
-  // Person anlegen
-  const handleAddPerson = (e) => {
-    e.preventDefault();
-    const pName = newPersonInput.trim();
-    if (pName && !people.includes(pName)) {
-      updateCurrentUserData({ people: [...people, pName] });
-      setSelectedPerson(pName);
-      setNewPersonInput('');
-      setShowAddPerson(false);
-    }
-  };
-
-  // Kategorie anlegen
-  const handleAddCategory = (e) => {
-    e.preventDefault();
-    const cName = newCatInput.trim();
-    if (cName && !categories.includes(cName)) {
-      updateCurrentUserData({ categories: [...categories, cName] });
-      setSelectedCategory(cName);
-      setNewCatInput('');
-      setShowAddCat(false);
-    }
-  };
-
-  // Item hinzufügen
-  const addItem = (e) => {
+  // 2. Gegenstand hinzufügen
+  const handleAddItem = async (e) => {
     e.preventDefault();
     if (!newItemText.trim()) return;
+
     const newItem = {
-      id: Date.now(),
       text: newItemText.trim(),
-      category: selectedCategory,
-      person: selectedPerson,
-      checked: false
+      category: newItemCategory,
+      person: newItemPerson,
+      checked: false,
+      user_name: currentUser
     };
-    updateCurrentUserData({ items: [...items, newItem] });
-    setNewItemText('');
-  };
 
-  // Item abhaken
-  const toggleItem = (id) => {
-    if (navigator.vibrate) navigator.vibrate(10);
-    const updatedItems = items.map(item => 
-      item.id === id ? { ...item, checked: !item.checked } : item
-    );
-    updateCurrentUserData({ items: updatedItems });
-  };
+    const { data, error } = await supabase
+      .from('pack_items')
+      .insert([newItem])
+      .select();
 
-  // Item löschen
-  const deleteItem = (id) => {
-    updateCurrentUserData({ items: items.filter(item => item.id !== id) });
-  };
-
-  // Alle abhaken / öffnen
-  const toggleAll = (status) => {
-    updateCurrentUserData({ items: items.map(i => ({ ...i, checked: status })) });
-  };
-
-  // Liste leeren
-  const resetList = () => {
-    if (confirm(`Alle Einträge für Nutzer "${currentUser}" wirklich löschen?`)) {
-      updateCurrentUserData({ items: [] });
+    if (error) {
+      console.error('Fehler beim Hinzufügen:', error.message);
+      alert('Fehler beim Speichern: ' + error.message);
+    } else if (data) {
+      setItems([...items, ...data]);
+      setNewItemText('');
     }
   };
 
-  // WhatsApp-Share
-  const shareWhatsApp = () => {
-    const openItems = items
-      .filter(i => !i.checked)
-      .map(i => `• ${i.text} (${i.person} / ${i.category})`)
-      .join('\n');
-    const text = `*Packliste von ${currentUser}*\n\n*Offen:*\n${openItems || 'Alles gepackt! 🎉'}\n\nErstellt mit der Pack-App 🧳`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  // 3. Abhaken (Status umschalten)
+  const handleToggleCheck = async (id, currentChecked) => {
+    // Optimistisches Update im UI
+    setItems(items.map(item => item.id === id ? { ...item, checked: !currentChecked } : item));
+
+    const { error } = await supabase
+      .from('pack_items')
+      .update({ checked: !currentChecked })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Fehler beim Aktualisieren:', error.message);
+      fetchItems(); // Bei Fehler Zustand neu laden
+    }
   };
 
-  // Filter-Logik & Fortschritt
+  // 4. Gegenstand löschen
+  const handleDeleteItem = async (id) => {
+    setItems(items.filter(item => item.id !== id));
+
+    const { error } = await supabase
+      .from('pack_items')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Fehler beim Löschen:', error.message);
+      fetchItems();
+    }
+  };
+
+  // 5. Nutzer hinzufügen
+  const handleAddUser = (e) => {
+    e.preventDefault();
+    if (!newUserInput.trim()) return;
+    if (!userList.includes(newUserInput.trim())) {
+      setUserList([...userList, newUserInput.trim()]);
+      setCurrentUser(newUserInput.trim());
+    }
+    setNewUserInput('');
+  };
+
+  // 6. Kategorie hinzufügen
+  const handleAddCategory = (e) => {
+    e.preventDefault();
+    if (!newCategoryInput.trim()) return;
+    if (!categories.includes(newCategoryInput.trim())) {
+      setCategories([...categories, newCategoryInput.trim()]);
+    }
+    setNewCategoryInput('');
+  };
+
+  // Filter anwenden
   const filteredItems = items.filter(item => {
-    const catMatch = activeCatFilter === 'Alle' || item.category === activeCatFilter;
-    const personMatch = activePersonFilter === 'Alle' || item.person === activePersonFilter;
-    return catMatch && personMatch;
+    const matchCat = filterCategory === 'Alle' || item.category === filterCategory;
+    const matchPer = filterPerson === 'Alle' || item.person === filterPerson;
+    return matchCat && matchPer;
   });
 
-  const checkedCount = items.filter(i => i.checked).length;
-  const progressPercent = items.length > 0 ? Math.round((checkedCount / items.length) * 100) : 0;
-
   return (
-    <div className="min-h-screen bg-[#F9F9FB] text-charcoal pb-12">
-      {/* Fortschrittsbalken */}
-      <div className="w-full bg-gray-200 h-1.5 fixed top-0 left-0 z-50">
-        <div 
-          className="bg-sage h-1.5 transition-all duration-500 ease-out"
-          style={{ width: `${progressPercent}%` }}
-        />
-      </div>
-
-      <div className="max-w-md mx-auto px-4 pt-6">
-        
-        {/* Header & Nutzer-Dropdown */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-6">
-          <div className="flex justify-between items-center mb-3">
-            <h1 className="text-xl font-bold">Pack-App 🧳</h1>
-            <span className="text-xs bg-sage/10 text-sage font-semibold px-2.5 py-1 rounded-full">
-              {progressPercent}% gepackt
-            </span>
-          </div>
-
-          <div className="flex gap-2 items-center">
-            <div className="flex-1">
-              <label className="block text-[10px] text-muted font-bold uppercase mb-1">Aktiver Nutzer:</label>
-              <select 
-                value={currentUser}
-                onChange={(e) => setCurrentUser(e.target.value)}
-                className="w-full text-xs font-semibold bg-gray-50 border rounded-xl px-3 py-2 outline-none focus:border-sage"
-              >
-                {userList.map(u => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex-1">
-              <label className="block text-[10px] text-muted font-bold uppercase mb-1">+ Neuer Nutzer:</label>
-              <form onSubmit={handleAddUser} className="flex gap-1">
-                <input 
-                  type="text" 
-                  placeholder="Name"
-                  value={newUserInput}
-                  onChange={(e) => setNewUserInput(e.target.value)}
-                  className="w-full text-xs px-2 py-1.5 border rounded-xl outline-none"
-                />
-                <button type="submit" className="bg-sage text-white text-xs px-3 py-1.5 rounded-xl font-bold">+</button>
-              </form>
-            </div>
-          </div>
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 font-sans text-charcoal">
+      {/* Header & Nutzerwechsel */}
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-sage-dark">Pack-App 🧳</h1>
+          <p className="text-sm text-muted">Cloud-synchronisierte Packliste</p>
         </div>
 
-        {/* Neues Item anlegen */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-6 space-y-3">
-          <form onSubmit={addItem} className="space-y-3">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Profil:</label>
+          <select 
+            value={currentUser} 
+            onChange={(e) => setCurrentUser(e.target.value)}
+            className="p-2 border rounded bg-white font-semibold"
+          >
+            {userList.map(user => (
+              <option key={user} value={user}>{user}</option>
+            ))}
+          </select>
+        </div>
+      </header>
+
+      {/* Neues Profil hinzufügen */}
+      <details className="mb-6 bg-white p-3 rounded border text-sm">
+        <summary className="cursor-pointer text-sage font-medium">+ Neues Profil erstellen</summary>
+        <form onSubmit={handleAddUser} className="flex gap-2 mt-2">
+          <input 
+            type="text" 
+            placeholder="Name eingeben..." 
+            value={newUserInput} 
+            onChange={(e) => setNewUserInput(e.target.value)}
+            className="p-2 border rounded flex-1"
+          />
+          <button type="submit" className="bg-sage text-white px-3 py-1 rounded">Erstellen</button>
+        </form>
+      </details>
+
+      {/* Formular: Neuen Gegenstand hinzufügen */}
+      <section className="bg-white p-4 rounded-lg shadow-sm mb-6 border">
+        <h2 className="text-lg font-semibold mb-3">Neuen Gegenstand hinzufügen</h2>
+        <form onSubmit={handleAddItem} className="flex flex-col sm:flex-row gap-3">
+          <input 
+            type="text" 
+            placeholder="Was muss mit? (z.B. Ladekabel)..." 
+            value={newItemText}
+            onChange={(e) => setNewItemText(e.target.value)}
+            className="p-2 border rounded flex-1"
+          />
+          <select 
+            value={newItemCategory} 
+            onChange={(e) => setNewItemCategory(e.target.value)}
+            className="p-2 border rounded"
+          >
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+          <select 
+            value={newItemPerson} 
+            onChange={(e) => setNewItemPerson(e.target.value)}
+            className="p-2 border rounded"
+          >
+            <option value="Alle">Für Alle</option>
+            <option value="Christian">Christian</option>
+            <option value="Miriam">Miriam</option>
+            <option value="Kind 1">Kind 1</option>
+            <option value="Kind 2">Kind 2</option>
+          </select>
+          <button type="submit" className="bg-sage hover:bg-sage-dark text-white px-4 py-2 rounded font-medium">
+            Hinzufügen
+          </button>
+        </form>
+
+        {/* Neue Kategorie hinzufügen */}
+        <details className="mt-3 text-xs text-muted">
+          <summary className="cursor-pointer">+ Neue Kategorie anlegen</summary>
+          <form onSubmit={handleAddCategory} className="flex gap-2 mt-2">
             <input 
               type="text" 
-              placeholder="Gegenstand eintragen..." 
-              value={newItemText}
-              onChange={(e) => setNewItemText(e.target.value)}
-              className="w-full px-3 py-2 text-sm border rounded-xl outline-none focus:border-sage"
+              placeholder="Kategoriename..." 
+              value={newCategoryInput} 
+              onChange={(e) => setNewCategoryInput(e.target.value)}
+              className="p-1 border rounded text-xs flex-1"
             />
-
-            {/* Zuordnung: Person & Kategorie */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-[10px] text-muted font-bold uppercase">Person:</label>
-                  <button type="button" onClick={() => setShowAddPerson(!showAddPerson)} className="text-[10px] text-sage font-bold">+ Person</button>
-                </div>
-                <select 
-                  value={selectedPerson}
-                  onChange={(e) => setSelectedPerson(e.target.value)}
-                  className="w-full text-xs bg-gray-50 border rounded-xl px-2 py-2 outline-none"
-                >
-                  {people.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-[10px] text-muted font-bold uppercase">Kategorie:</label>
-                  <button type="button" onClick={() => setShowAddCat(!showAddCat)} className="text-[10px] text-sage font-bold">+ Kat.</button>
-                </div>
-                <select 
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full text-xs bg-gray-50 border rounded-xl px-2 py-2 outline-none"
-                >
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <button type="submit" className="w-full bg-sage text-white text-sm font-medium py-2.5 rounded-xl active:scale-95 transition-transform">
-              + Item hinzufügen
-            </button>
+            <button type="submit" className="bg-sand text-charcoal px-2 py-1 rounded">Hinzufügen</button>
           </form>
+        </details>
+      </section>
 
-          {/* Neue Person hinzufügen */}
-          {showAddPerson && (
-            <form onSubmit={handleAddPerson} className="pt-2 border-t flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Name der Person (z.B. Noah)" 
-                value={newPersonInput}
-                onChange={(e) => setNewPersonInput(e.target.value)}
-                className="flex-1 px-3 py-1.5 text-xs border rounded-xl outline-none"
-              />
-              <button type="submit" className="bg-charcoal text-white text-xs px-3 py-1.5 rounded-xl">Speichern</button>
-            </form>
-          )}
-
-          {/* Neue Kategorie hinzufügen */}
-          {showAddCat && (
-            <form onSubmit={handleAddCategory} className="pt-2 border-t flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Neue Kategorie (z.B. Sport)" 
-                value={newCatInput}
-                onChange={(e) => setNewCatInput(e.target.value)}
-                className="flex-1 px-3 py-1.5 text-xs border rounded-xl outline-none"
-              />
-              <button type="submit" className="bg-charcoal text-white text-xs px-3 py-1.5 rounded-xl">Speichern</button>
-            </form>
-          )}
+      {/* Filter-Bereich */}
+      <section className="flex flex-wrap gap-4 mb-4 bg-sand/30 p-3 rounded">
+        <div>
+          <label className="text-xs font-semibold block mb-1">Filter Kategorie:</label>
+          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="p-1 text-sm border rounded bg-white">
+            <option value="Alle">Alle Kategorien</option>
+            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
         </div>
-
-        {/* Filter-Leisten */}
-        <div className="space-y-2 mb-4">
-          {/* Personen-Filter */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-[10px] text-muted font-bold uppercase self-center mr-1">Person:</span>
-            {people.map(p => (
-              <button
-                key={p}
-                onClick={() => setActivePersonFilter(p)}
-                className={`px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition-colors ${
-                  activePersonFilter === p ? 'bg-charcoal text-white' : 'bg-white text-muted border'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          {/* Kategorien-Filter */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-[10px] text-muted font-bold uppercase self-center mr-1">Kat:</span>
-            <button
-              onClick={() => setActiveCatFilter('Alle')}
-              className={`px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition-colors ${
-                activeCatFilter === 'Alle' ? 'bg-sage text-white' : 'bg-white text-muted border'
-              }`}
-            >
-              Alle
-            </button>
-            {categories.map(c => (
-              <button
-                key={c}
-                onClick={() => setActiveCatFilter(c)}
-                className={`px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition-colors ${
-                  activeCatFilter === c ? 'bg-sage text-white' : 'bg-white text-muted border'
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
+        <div>
+          <label className="text-xs font-semibold block mb-1">Filter Person:</label>
+          <select value={filterPerson} onChange={(e) => setFilterPerson(e.target.value)} className="p-1 text-sm border rounded bg-white">
+            <option value="Alle">Alle Personen</option>
+            <option value="Christian">Christian</option>
+            <option value="Miriam">Miriam</option>
+            <option value="Kind 1">Kind 1</option>
+            <option value="Kind 2">Kind 2</option>
+          </select>
         </div>
+      </section>
 
-        {/* Aktionen */}
-        <div className="flex justify-between items-center mb-3 text-xs">
-          <div className="flex gap-2">
-            <button onClick={() => toggleAll(true)} className="text-sage font-medium">Alle abhaken</button>
-            <span className="text-gray-300">|</span>
-            <button onClick={() => toggleAll(false)} className="text-muted">Alle öffnen</button>
-          </div>
-          <button onClick={shareWhatsApp} className="text-sage font-medium">📲 via WhatsApp</button>
-        </div>
+      {/* Packliste anzeigen */}
+      <section className="bg-white p-4 rounded-lg shadow-sm border">
+        <h2 className="text-lg font-semibold mb-3">
+          Packliste von <span className="text-sage-dark">{currentUser}</span>
+        </h2>
 
-        {/* Die Liste */}
-        <div className="space-y-2 mb-8">
-          {filteredItems.length === 0 && (
-            <p className="text-center text-sm text-muted py-8 bg-white rounded-2xl border">Keine Einträge für diese Auswahl.</p>
-          )}
-
-          {filteredItems.map((item) => (
-            <div
-              key={item.id}
-              className={`flex items-center justify-between p-4 rounded-2xl bg-white border border-gray-100 transition-all duration-300 shadow-sm ${
-                item.checked ? 'opacity-50 line-through bg-gray-50' : ''
-              }`}
-            >
-              <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => toggleItem(item.id)}>
-                <div
-                  className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-transform active:scale-110 ${
-                    item.checked ? 'bg-sage border-sage text-white' : 'border-sand bg-transparent'
-                  }`}
-                >
-                  {item.checked && <span className="text-xs font-bold">✓</span>}
+        {loading ? (
+          <p className="text-muted text-sm italic py-4">Lade Daten aus der Cloud...</p>
+        ) : filteredItems.length === 0 ? (
+          <p className="text-muted text-sm italic py-4">Keine Gegenstände gefunden.</p>
+        ) : (
+          <ul className="divide-y">
+            {filteredItems.map(item => (
+              <li key={item.id} className="py-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="checkbox" 
+                    checked={item.checked} 
+                    onChange={() => handleToggleCheck(item.id, item.checked)}
+                    className="w-5 h-5 accent-sage rounded cursor-pointer"
+                  />
+                  <span className={item.checked ? 'line-through text-muted' : 'font-medium'}>
+                    {item.text}
+                  </span>
                 </div>
-                <div>
-                  <span className="text-base font-medium block">{item.text}</span>
-                  <div className="flex gap-1 mt-0.5">
-                    <span className="text-[9px] bg-gray-100 text-charcoal px-2 py-0.5 rounded-md font-semibold">{item.person}</span>
-                    <span className="text-[9px] bg-sage/10 text-sage px-2 py-0.5 rounded-md font-semibold">{item.category}</span>
-                  </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="bg-sand/60 px-2 py-0.5 rounded text-charcoal">{item.category}</span>
+                  <span className="bg-sage/20 px-2 py-0.5 rounded text-sage-dark">{item.person}</span>
+                  <button 
+                    onClick={() => handleDeleteItem(item.id)}
+                    className="text-red-400 hover:text-red-600 ml-2 font-bold"
+                    title="Löschen"
+                  >
+                    ✕
+                  </button>
                 </div>
-              </div>
-
-              <button 
-                onClick={() => deleteItem(item.id)}
-                className="text-gray-300 hover:text-red-400 p-1 text-sm transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Reset */}
-        {items.length > 0 && (
-          <div className="text-center">
-            <button onClick={resetList} className="text-xs text-red-400 hover:text-red-600 transition-colors">
-              Liste von {currentUser} leeren
-            </button>
-          </div>
+              </li>
+            ))}
+          </ul>
         )}
-
-      </div>
+      </section>
     </div>
   );
 }
 
-ReactDOM.render(<App />, document.getElementById('root'));
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
