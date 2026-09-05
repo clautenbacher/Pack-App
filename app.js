@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://uvolbvrzakcrhizhspgv.supabase.co';
 const SUPABASE_ANON_KEY = 
 
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2xidnJ6YWtjcmhpemhzcGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTc3ODksImV4cCI6MjEwMzg5Mzc4OX0.TaHFzj6zUvjvQpuDZEuULbcxbMltIAr_MqKM9cqKOvE';
+'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxeWZrZG1zeHFweHZnYW9mZ21uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MjI2NjAsImV4cCI6MjEwMzk5ODY2MH0.4a-kBOXSPQPAgnYLGrH68_OTI1uD49-dHT4K8ZkAv_I';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -160,12 +160,14 @@ function App() {
   });
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 font-sans text-charcoal">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 font-sans text-charcoal min-h-screen">
       {/* Header & Nutzerwechsel */}
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold text-sage-dark">Pack-App 🧳</h1>
-          <p className="text-sm text-muted">Cloud-synchronisierte Packliste</p>
+          <p className="text-xs uppercase tracking-wider text-muted font-medium mt-0.5">
+            Produced by <span className="font-bold text-sage-dark">Lautenbacher CORE Productions</span>
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -271,7 +273,7 @@ function App() {
       </section>
 
       {/* Packliste anzeigen */}
-      <section className="bg-white p-4 rounded-lg shadow-sm border">
+      <section className="bg-white p-4 rounded-lg shadow-sm border mb-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">
             Packliste von <span className="text-sage-dark">{currentUser}</span>
