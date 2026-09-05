@@ -1,6 +1,6 @@
 const SUPABASE_URL = 'https://uvolbvrzakcrhizhspgv.supabase.co';
 const SUPABASE_ANON_KEY = 
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2xidnJ6YWtjcmhpemhzcGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTc3ODksImV4cCI6MjEwMzg5Mzc4OX0.TaHFzj6zUvjvQpuDZEuULbcxbMltIAr_MqKM9cqKOvE';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2xidnJ6YWtjcmhpemhzcGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg0XKEY0.TaHfzj6zUvjvQpuDzeUULbcxbM1tIAr_MqKM9cqKOvE';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -88,7 +88,7 @@ function App() {
 
     if (error) {
       console.error('Fehler beim Aktualisieren:', error.message);
-      fetchItems(); // Bei Fehler Zustand neu laden
+      fetchItems();
     }
   };
 
@@ -107,7 +107,30 @@ function App() {
     }
   };
 
-  // 5. Nutzer hinzufügen
+  // 5. Alle Gegenstände demarkieren (Häkchen zurücksetzen)
+  const handleResetAll = async () => {
+    const confirmed = window.confirm(
+      `Möchtest du wirklich alle Häkchen für ${currentUser} zurücksetzen?`
+    );
+    if (!confirmed) return;
+
+    // Optimistisches Update im UI
+    setItems(items.map(item => ({ ...item, checked: false })));
+
+    // Alle Einträge in Supabase auf checked = false setzen
+    const { error } = await supabase
+      .from('pack_items')
+      .update({ checked: false })
+      .eq('user_name', currentUser);
+
+    if (error) {
+      console.error('Fehler beim Zurücksetzen:', error.message);
+      alert('Fehler beim Zurücksetzen: ' + error.message);
+      fetchItems();
+    }
+  };
+
+  // 6. Nutzer hinzufügen
   const handleAddUser = (e) => {
     e.preventDefault();
     if (!newUserInput.trim()) return;
@@ -118,7 +141,7 @@ function App() {
     setNewUserInput('');
   };
 
-  // 6. Kategorie hinzufügen
+  // 7. Kategorie hinzufügen
   const handleAddCategory = (e) => {
     e.preventDefault();
     if (!newCategoryInput.trim()) return;
@@ -248,9 +271,20 @@ function App() {
 
       {/* Packliste anzeigen */}
       <section className="bg-white p-4 rounded-lg shadow-sm border">
-        <h2 className="text-lg font-semibold mb-3">
-          Packliste von <span className="text-sage-dark">{currentUser}</span>
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">
+            Packliste von <span className="text-sage-dark">{currentUser}</span>
+          </h2>
+          {items.length > 0 && (
+            <button
+              onClick={handleResetAll}
+              className="text-xs bg-sand/80 hover:bg-sand text-charcoal font-medium px-3 py-1.5 rounded-lg transition-colors border"
+              title="Setzt alle Häkchen für den nächsten Urlaub zurück"
+            >
+              🔄 Alle demarkieren
+            </button>
+          )}
+        </div>
 
         {loading ? (
           <p className="text-muted text-sm italic py-4">Lade Daten aus der Cloud...</p>
