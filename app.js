@@ -6,8 +6,6 @@ const SUPABASE_URL = 'https://uvolbvrzakcrhizhspgv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2b2xidnJ6YWtjcmhpemhzcGd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTc3ODksImV4cCI6MjEwMzg5Mzc4OX0.TaHFzj6zUvjvQpuDZEuULbcxbMltIAr_MqKM9cqKOvE';
 
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 function App() {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
@@ -25,8 +23,11 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('Kleidung');
   const [newCategoryName, setNewCategoryName] = useState('');
   
-  const [assignedPerson, setAssignedPerson] = useState('Christian');
+  // Personen-Verwaltung
   const [people, setPeople] = useState(['Christian', 'Miriam', 'Noah', 'Elina']);
+  const [assignedPerson, setAssignedPerson] = useState('Christian');
+  const [newPersonName, setNewPersonName] = useState('');
+  
   const [filterPerson, setFilterPerson] = useState('Alle');
   const [filterCategory, setFilterCategory] = useState('Alle');
 
@@ -144,10 +145,22 @@ function App() {
   // 6. Neue Kategorie hinzufügen
   const addCategory = (e) => {
     e.preventDefault();
-    if (newCategoryName.trim() && !categories.includes(newCategoryName.trim())) {
-      setCategories([...categories, newCategoryName.trim()]);
-      setSelectedCategory(newCategoryName.trim());
+    const name = newCategoryName.trim();
+    if (name && !categories.includes(name)) {
+      setCategories([...categories, name]);
+      setSelectedCategory(name);
       setNewCategoryName('');
+    }
+  };
+
+  // 7. Neue Person hinzufügen
+  const addPerson = (e) => {
+    e.preventDefault();
+    const name = newPersonName.trim();
+    if (name && !people.includes(name)) {
+      setPeople([...people, name]);
+      setAssignedPerson(name);
+      setNewPersonName('');
     }
   };
 
@@ -211,11 +224,18 @@ function App() {
             </div>
           </form>
 
-          {/* Neue Kategorie anlegen */}
-          <form onSubmit={addCategory} className="flex gap-2 pt-2 border-t">
-            <input className="border p-1 text-sm rounded flex-1" type="text" placeholder="+ Neue Kategorie..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
-            <button className="bg-gray-200 text-sm px-3 py-1 rounded">Kategorie Speichern</button>
-          </form>
+          {/* Neue Kategorie & Neue Person anlegen */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2 border-t">
+            <form onSubmit={addCategory} className="flex gap-2">
+              <input className="border p-1 text-sm rounded flex-1" type="text" placeholder="+ Neue Kategorie..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
+              <button className="bg-gray-200 text-sm px-3 py-1 rounded">Kategorie Speichern</button>
+            </form>
+
+            <form onSubmit={addPerson} className="flex gap-2">
+              <input className="border p-1 text-sm rounded flex-1" type="text" placeholder="+ Neue Person..." value={newPersonName} onChange={e => setNewPersonName(e.target.value)} />
+              <button className="bg-gray-200 text-sm px-3 py-1 rounded">Person Speichern</button>
+            </form>
+          </div>
         </div>
       )}
 
